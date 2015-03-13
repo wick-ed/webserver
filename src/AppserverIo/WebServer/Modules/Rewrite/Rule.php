@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Rewrite\Entities\Rule
+ * \AppserverIo\WebServer\Modules\Rewrite\Rule
  *
  * NOTICE OF LICENSE
  *
@@ -18,20 +18,19 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Modules\Rewrite\Entities;
+namespace AppserverIo\WebServer\Modules\Rewrite;
 
 use AppserverIo\Psr\HttpMessage\Protocol;
 use AppserverIo\Http\HttpResponseStates;
 use AppserverIo\Psr\HttpMessage\ResponseInterface;
-use AppserverIo\WebServer\Modules\Rewrite\Dictionaries\RuleFlags;
 use AppserverIo\Server\Dictionaries\ServerVars;
 use AppserverIo\Server\Interfaces\RequestContextInterface;
+use AppserverIo\WebServer\Modules\Rules\Entities\AbstractRule;
+use AppserverIo\WebServer\Modules\Rules\Entities\Condition;
 
 /**
- * AppserverIo\WebServer\Modules\Rewrite\Entities\Rule
- *
  * This class provides an object based representation of a rewrite rule, including logic for testing, applying
- * and handeling conditions.
+ * and handling conditions.
  *
  * @author    Bernhard Wick <bw@appserver.io>
  * @copyright 2015 TechDivision GmbH <info@appserver.io>
@@ -39,65 +38,8 @@ use AppserverIo\Server\Interfaces\RequestContextInterface;
  * @link      https://github.com/appserver-io/webserver
  * @link      http://www.appserver.io/
  */
-class Rule
+class Rule extends AbstractRule
 {
-
-    /**
-     * The allowed values the $type member my assume
-     *
-     * @var array $allowedTypes
-     */
-    protected $allowedTypes = array();
-
-    /**
-     * The type of rule we have.
-     * This might be "relative", "absolute" or "url"
-     *
-     * @var string $type
-     */
-    protected $type;
-
-    /**
-     * The condition string
-     *
-     * @var string $conditionString
-     */
-    protected $conditionString;
-
-    /**
-     * The sorted conditions we have to check
-     *
-     * @var array $sortedConditions
-     */
-    protected $sortedConditions = array();
-
-    /**
-     * Will hold the backreferences of the condition(s) which matched
-     *
-     * @var array $matchingBackreferences
-     */
-    protected $matchingBackreferences = array();
-
-    /**
-     * The target to rewrite the REDIRECT_URL to
-     *
-     * @var string $target
-     */
-    protected $target;
-
-    /**
-     * The flag we have to take into consideration when working with the rule
-     *
-     * @var string $flagString
-     */
-    protected $flagString;
-
-    /**
-     * All flags sorted and brought in relation with their potential parameters
-     *
-     * @var array $sortedFlags
-     */
-    protected $sortedFlags;
 
     /**
      * The default operand we will check all conditions against if none was given explicitly
@@ -105,34 +47,6 @@ class Rule
      * @const string DEFAULT_OPERAND
      */
     const DEFAULT_OPERAND = '@$X_REQUEST_URI';
-
-    /**
-     * This constant by which conditions are separated and marked as or-combined
-     *
-     * @const string CONDITION_OR_DELIMITER
-     */
-    const CONDITION_OR_DELIMITER = '{OR}';
-
-    /**
-     * This constant by which conditions are separated and marked as and-combined (the default)
-     *
-     * @const string CONDITION_AND_DELIMITER
-     */
-    const CONDITION_AND_DELIMITER = '{AND}';
-
-    /**
-     * This constant is used to separate flags from each other
-     *
-     * @const string FLAG_DELIMITER
-     */
-    const FLAG_DELIMITER = ',';
-
-    /**
-     * This constant is used to separate flags from their potential parameters
-     *
-     * @const string FLAG_PARAMETER_ASSIGNER
-     */
-    const FLAG_PARAMETER_ASSIGNER = '=';
 
     /**
      * Default constructor
@@ -203,125 +117,6 @@ class Rule
     }
 
     /**
-     * Sort the flag string as we will have a bad time parsing the string over and over again
-     *
-     * @param string $flagString The unsorted string of flags
-     *
-     * @return array
-     */
-    protected function sortFlags($flagString)
-    {
-        $flags = array();
-        foreach (explode(self::FLAG_DELIMITER, $flagString) as $flag) {
-            $flagPieces = explode(self::FLAG_PARAMETER_ASSIGNER, $flag);
-
-            // Set the pieces (if any)
-            if (array_key_exists(1, $flagPieces)) {
-                $flags[$flagPieces[0]] = $flagPieces[1];
-            } else {
-                $flags[$flagPieces[0]] = null;
-            }
-        }
-
-        return $flags;
-    }
-
-    /**
-     * Will return the default operand of this action
-     *
-     * @return string
-     */
-    protected function getDefaultOperand()
-    {
-        return self::DEFAULT_OPERAND;
-    }
-
-    /**
-     * Will resolve the directive's parts by substituting placeholders with the corresponding backreferences
-     *
-     * @param array $backreferences The backreferences used for resolving placeholders
-     *
-     * @return void
-     */
-    public function resolve(array $backreferences)
-    {
-        // We have to resolve backreferences in three steps.
-        // First of all we have to resolve the backreferences based on the server vars
-        $this->resolveConditions($backreferences);
-
-        // Second we have to produce the regex based backreferences from the now semi-resolved conditions
-        $conditionBackreferences = $this->getBackreferences();
-
-        // Last but not least we have to resolve the conditions against the regex backreferences
-        $this->resolveConditions($conditionBackreferences);
-    }
-
-    /**
-     * Will resolve the directive's parts by substituting placeholders with the corresponding backreferences
-     *
-     * @param array $backreferences The backreferences used for resolving placeholders
-     *
-     * @return void
-     */
-    protected function resolveConditions(array $backreferences)
-    {
-        // Iterate over all conditions and resolve them too
-        foreach ($this->sortedConditions as $key => $sortedCondition) {
-            // If we got an array we have to iterate over it separately, but be aware they are or-combined
-            if (is_array($sortedCondition)) {
-                // These are or-combined conditions but we have to resolve them too
-                foreach ($sortedCondition as $orKey => $orCombinedCondition) {
-                    // Resolve the condition
-                    $orCombinedCondition->resolve($backreferences);
-                    $this->sortedConditions[$key][$orKey] = $orCombinedCondition;
-                }
-            } else {
-                // Resolve the condition
-                $sortedCondition->resolve($backreferences);
-                $this->sortedConditions[$key] = $sortedCondition;
-            }
-        }
-    }
-
-    /**
-     * Will return true if the rule applies, false if not
-     *
-     * @return bool
-     */
-    public function matches()
-    {
-        // We will iterate over all conditions (and the or-combined condition groups) and if there is a non-matching
-        // condition or condition group we will fail
-        foreach ($this->sortedConditions as $sortedCondition) {
-            // If we got an array we have to iterate over it separately, but be aware they are or-combined
-            if (is_array($sortedCondition)) {
-                // These are or-combined conditions, so break if we match one
-                $orGroupMatched = false;
-                foreach ($sortedCondition as $orCombinedCondition) {
-                    if ($orCombinedCondition->matches()) {
-                        $orGroupMatched = true;
-                        $this->matchingBackreferences = array_merge($this->matchingBackreferences, $orCombinedCondition->getBackreferences());
-                        break;
-                    }
-                }
-
-                // Did one condition within this group match?
-                if ($orGroupMatched === false) {
-                    return false;
-                }
-            } elseif (! $sortedCondition->matches()) {
-                // The single conditions have to match as they are and-combined
-                return false;
-            } else {
-                $this->matchingBackreferences = array_merge($this->matchingBackreferences, $sortedCondition->getBackreferences());
-            }
-        }
-
-        // We are still here, this sounds good
-        return true;
-    }
-
-    /**
      * Initiates the module
      *
      * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext       The request's context
@@ -344,9 +139,9 @@ class Rule
 
         // If we got a target map (flag "M") we have to resolve the target string we have to use first
         // The following checks will be treated as an additional condition
-        if (array_key_exists(RuleFlags::MAP, $this->sortedFlags) && ! empty($this->sortedFlags[RuleFlags::MAP])) {
+        if (array_key_exists(RuleFlagsDictionary::MAP, $this->sortedFlags) && ! empty($this->sortedFlags[RuleFlagsDictionary::MAP])) {
             // Get our map key for better readability
-            $mapKey = str_replace(array_keys($this->matchingBackreferences), $this->matchingBackreferences, $this->sortedFlags[RuleFlags::MAP]);
+            $mapKey = str_replace(array_keys($this->matchingBackreferences), $this->matchingBackreferences, $this->sortedFlags[RuleFlagsDictionary::MAP]);
 
             // Still here? That sounds good. Get the needed target string now
             if (isset($this->target[$mapKey])) {
@@ -356,8 +151,8 @@ class Rule
                 $this->target = '';
 
                 // Also clear any L-flag we might find, we could not find what we are looking for so we should not end
-                if (array_key_exists(RuleFlags::LAST, $this->sortedFlags)) {
-                    unset($this->sortedFlags[RuleFlags::LAST]);
+                if (array_key_exists(RuleFlagsDictionary::LAST, $this->sortedFlags)) {
+                    unset($this->sortedFlags[RuleFlagsDictionary::LAST]);
                 }
             }
         }
@@ -406,7 +201,7 @@ class Rule
 
             // do we have to make a redirect?
             // if so we have to have to set the status code accordingly and dispatch the response
-            if (array_key_exists(RuleFlags::REDIRECT, $this->sortedFlags)) {
+            if (array_key_exists(RuleFlagsDictionary::REDIRECT, $this->sortedFlags)) {
                 $this->prepareRedirect($requestContext, $response);
             }
 
@@ -414,7 +209,7 @@ class Rule
             $requestContext->setServerVar(ServerVars::REDIRECT_STATUS, '200');
         }
         // If we got the "LAST"-flag we have to end here, so return false
-        if (array_key_exists(RuleFlags::LAST, $this->sortedFlags)) {
+        if (array_key_exists(RuleFlagsDictionary::LAST, $this->sortedFlags)) {
             return false;
         }
 
@@ -436,7 +231,7 @@ class Rule
     {
         // if we got a specific status code we have to filter it and apply it if possible
         $statusCode = 301;
-        $proposedStatusCode = $this->sortedFlags[RuleFlags::REDIRECT];
+        $proposedStatusCode = $this->sortedFlags[RuleFlagsDictionary::REDIRECT];
         if (is_numeric($proposedStatusCode) && $proposedStatusCode >= 300 && $proposedStatusCode < 400) {
             $statusCode = $proposedStatusCode;
         }
@@ -455,61 +250,5 @@ class Rule
         $response->setStatusCode($statusCode);
         // set response state to be dispatched after this without calling other modules process
         $response->setState(HttpResponseStates::DISPATCH);
-    }
-
-    /**
-     * Will collect all backreferences based on regex typed conditions
-     *
-     * @return array
-     */
-    public function getBackreferences()
-    {
-        // Iterate over all conditions and collect their backreferences
-        $backreferences = array();
-        foreach ($this->sortedConditions as $key => $sortedCondition) {
-            // If we got an array we have to iterate over it separately, but be aware they are or-combined
-            if (is_array($sortedCondition)) {
-                // These are or-combined conditions but we have to resolve them too
-                foreach ($sortedCondition as $orCombinedCondition) {
-                    // Get the backreferences of this condition
-                    $backreferences = array_merge($backreferences, $orCombinedCondition->getBackreferences());
-                }
-            } else {
-                // Get the backreferences of this condition
-                $backreferences = array_merge($backreferences, $sortedCondition->getBackreferences());
-            }
-        }
-
-        return $backreferences;
-    }
-
-    /**
-     * Getter function for the condition string
-     *
-     * @return string
-     */
-    public function getConditionString()
-    {
-        return $this->conditionString;
-    }
-
-    /**
-     * Getter function for the flag string
-     *
-     * @return string
-     */
-    public function getFlagString()
-    {
-        return $this->flagString;
-    }
-
-    /**
-     * Getter function for the target string
-     *
-     * @return string
-     */
-    public function getTarget()
-    {
-        return $this->target;
     }
 }

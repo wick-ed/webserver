@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\RewriteModule
+ * \AppserverIo\WebServer\Modules\ProxyModule
  *
  * NOTICE OF LICENSE
  *
@@ -30,10 +30,9 @@ use AppserverIo\Server\Dictionaries\EnvVars;
 use AppserverIo\Server\Interfaces\RequestContextInterface;
 use AppserverIo\Server\Interfaces\ServerContextInterface;
 use AppserverIo\Server\Dictionaries\ModuleVars;
-use AppserverIo\WebServer\Modules\Rewrite\Rule;
 
 /**
- * Class RewriteModule
+ * Class ProxyModule which allows to relay client requests to other targets without their direct interaction
  *
  * @author    Bernhard Wick <bw@appserver.io>
  * @copyright 2015 TechDivision GmbH <info@appserver.io>
@@ -41,7 +40,7 @@ use AppserverIo\WebServer\Modules\Rewrite\Rule;
  * @link      https://github.com/appserver-io/webserver
  * @link      http://www.appserver.io/
  */
-class RewriteModule implements HttpModuleInterface
+class ProxyModule implements HttpModuleInterface
 {
 
     /**
@@ -124,21 +123,7 @@ class RewriteModule implements HttpModuleInterface
      *
      * @var string
      */
-    const MODULE_NAME = 'rewrite';
-
-    /**
-     * Defines the SCRIPT_URL constant's name we keep track of
-     *
-     * @var string
-     */
-    const SCRIPT_URL = 'SCRIPT_URL';
-
-    /**
-     * Defines the SCRIPT_URI constant's name we keep track of
-     *
-     * @var string
-     */
-    const SCRIPT_URI = 'SCRIPT_URI';
+    const MODULE_NAME = 'proxy';
 
     /**
      * Initiates the module

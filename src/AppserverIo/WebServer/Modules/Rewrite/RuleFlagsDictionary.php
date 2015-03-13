@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Mock\MockRule
+ * \AppserverIo\WebServer\Modules\Rewrite\RuleFlagsDictionary
  *
  * NOTICE OF LICENSE
  *
@@ -18,14 +18,15 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Mock;
+namespace AppserverIo\WebServer\Modules\Rewrite;
 
-use AppserverIo\WebServer\Modules\Rewrite\Rule;
+use AppserverIo\WebServer\Modules\Rules\Dictionaries\RuleFlags;
 
 /**
- * Class MockRule
+ * Class RuleFlagsDictionary
  *
- * Mocks the Rule class to expose additional and hidden functionality
+ * This file is a dictionary for rule flags.
+ * Defines constant for flags we might use within the rule's flag field
  *
  * @author    Bernhard Wick <bw@appserver.io>
  * @copyright 2015 TechDivision GmbH <info@appserver.io>
@@ -33,37 +34,20 @@ use AppserverIo\WebServer\Modules\Rewrite\Rule;
  * @link      https://github.com/appserver-io/webserver
  * @link      http://www.appserver.io/
  */
-class MockRule extends Rule
+class RuleFlagsDictionary extends RuleFlags
 {
-    /**
-     * Used to open up the parent's sortFlags() method for testing
-     *
-     * @param string $flagString The unsorted string of flags
-     *
-     * @return array
-     */
-    public function sortFlags($flagString)
-    {
-        return parent::sortFlags($flagString);
-    }
 
     /**
-     * Getter function for the protected $type member
+     * Make a redirect instead of a mere rewrite
      *
-     * @return string
+     * @var string
      */
-    public function getType()
-    {
-        return $this->type;
-    }
+    const REDIRECT = 'R';
 
     /**
-     * Getter function for the protected $sortedFlags member
+     * Do not process following rewrite rules if this one matches
      *
-     * @return array
+     * @var string
      */
-    public function getSortedFlags()
-    {
-        return $this->sortedFlags;
-    }
+    const LAST = 'L';
 }

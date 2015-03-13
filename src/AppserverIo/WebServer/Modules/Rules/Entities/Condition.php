@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Rewrite\Entities\Condition
+ * \AppserverIo\WebServer\Modules\Rules\Entities\Condition
  *
  * NOTICE OF LICENSE
  *
@@ -18,9 +18,9 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Modules\Rewrite\Entities;
+namespace AppserverIo\WebServer\Modules\Rules\Entities;
 
-use AppserverIo\WebServer\Modules\Rewrite\Dictionaries\ConditionActions;
+use AppserverIo\WebServer\Modules\Rules\Dictionaries\ConditionActions;
 use AppserverIo\Server\Dictionaries\ServerVars;
 
 /**

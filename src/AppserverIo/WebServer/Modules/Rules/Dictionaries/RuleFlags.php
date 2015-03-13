@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Mock\MockCondition
+ * \AppserverIo\WebServer\Modules\Rules\Dictionaries\RuleFlags
  *
  * NOTICE OF LICENSE
  *
@@ -18,12 +18,13 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Mock;
+namespace AppserverIo\WebServer\Modules\Rules\Dictionaries;
 
 /**
- * Class MockCondition
+ * Class RuleFlags
  *
- * Mocks the Condition class to expose additional functionality
+ * This file is a dictionary for rule flags.
+ * Defines constant for flags we might use within the rule's flag field
  *
  * @author    Bernhard Wick <bw@appserver.io>
  * @copyright 2015 TechDivision GmbH <info@appserver.io>
@@ -31,35 +32,13 @@ namespace AppserverIo\WebServer\Mock;
  * @link      https://github.com/appserver-io/webserver
  * @link      http://www.appserver.io/
  */
-class MockCondition extends \AppserverIo\WebServer\Modules\Rules\Entities\Condition
+class RuleFlags
 {
-    /**
-     * Getter for the $additionalOperand member
-     *
-     * @return string
-     */
-    public function getAdditionalOperand()
-    {
-        return $this->additionalOperand;
-    }
 
     /**
-     * Getter for the $action member
+     * Take the target from a specified map
      *
-     * @return string
+     * @var string
      */
-    public function getAction()
-    {
-        return $this->action;
-    }
-
-    /**
-     * Getter for the $isNegated member
-     *
-     * @return boolean
-     */
-    public function getIsNegated()
-    {
-        return $this->isNegated;
-    }
+    const MAP = 'M';
 }

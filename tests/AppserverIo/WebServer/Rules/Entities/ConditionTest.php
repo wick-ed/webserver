@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Rewrite\Entities\ConditionTest
+ * \AppserverIo\WebServer\Modules\Rules\Entities\ConditionTest
  *
  * NOTICE OF LICENSE
  *
@@ -18,7 +18,7 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Modules\Rewrite\Entities;
+namespace AppserverIo\WebServer\Modules\Rules\Entities;
 
 use AppserverIo\WebServer\Mock\MockCondition;
 use AppserverIo\WebServer\Modules\RewriteModule;
@@ -209,7 +209,7 @@ class ConditionTest extends \PHPUnit_Framework_TestCase
     public function testMatchesIsExecutable()
     {
         $htmlBaseDir = __DIR__ .
-            DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' .
+            DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . '..' .
             DIRECTORY_SEPARATOR . '_files' .
             DIRECTORY_SEPARATOR . 'modules' .
             DIRECTORY_SEPARATOR . RewriteModule::MODULE_NAME . DIRECTORY_SEPARATOR . 'html';

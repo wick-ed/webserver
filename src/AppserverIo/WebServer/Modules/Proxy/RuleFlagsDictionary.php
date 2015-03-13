@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Rewrite\Dictionaries\RuleFlags
+ * \AppserverIo\WebServer\Modules\Proxy\RuleFlagsDictionary
  *
  * NOTICE OF LICENSE
  *
@@ -18,10 +18,12 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Modules\Rewrite\Dictionaries;
+namespace AppserverIo\WebServer\Modules\Proxy;
+
+use AppserverIo\WebServer\Modules\Rules\Dictionaries\RuleFlags;
 
 /**
- * Class RuleFlags
+ * Class RuleFlagsDictionary
  *
  * This file is a dictionary for rule flags.
  * Defines constant for flags we might use within the rule's flag field
@@ -32,27 +34,13 @@ namespace AppserverIo\WebServer\Modules\Rewrite\Dictionaries;
  * @link      https://github.com/appserver-io/webserver
  * @link      http://www.appserver.io/
  */
-class RuleFlags
+class RuleFlagsDictionary extends RuleFlags
 {
 
     /**
-     * Make a redirect instead of a mere rewrite
+     * Make proxy fall back to the next target if applied connection times out
      *
      * @var string
      */
-    const REDIRECT = 'R';
-
-    /**
-     * Take the target from a specified map
-     *
-     * @var string
-     */
-    const MAP = 'M';
-
-    /**
-     * Do not process following rewrite rules if this one matches
-     *
-     * @var string
-     */
-    const LAST = 'L';
+    const FALLBACK = 'F';
 }

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Rewrite\Dictionaries\ConditionActions
+ * \AppserverIo\WebServer\Modules\Rules\Dictionaries\ConditionActions
  *
  * NOTICE OF LICENSE
  *
@@ -18,7 +18,7 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Modules\Rewrite\Dictionaries;
+namespace AppserverIo\WebServer\Modules\Rules\Dictionaries;
 
 /**
  * Class ConditionActions

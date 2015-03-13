@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Rewrite\Entities\ConditionTest
+ * \AppserverIo\WebServer\Modules\Rewrite\RuleTest
  *
  * NOTICE OF LICENSE
  *
@@ -18,7 +18,7 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Modules\Rewrite\Entities;
+namespace AppserverIo\WebServer\Modules\Rewrite;
 
 use AppserverIo\WebServer\Mock\MockRequestContext;
 use AppserverIo\WebServer\Mock\MockRule;
