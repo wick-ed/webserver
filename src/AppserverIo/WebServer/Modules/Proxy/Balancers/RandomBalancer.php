@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Proxy\RuleFlagsDictionary
+ * \AppserverIo\WebServer\Modules\Proxy\Balancers\RandomBalancer
  *
  * NOTICE OF LICENSE
  *
@@ -18,15 +18,10 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Modules\Proxy;
-
-use AppserverIo\WebServer\Modules\Rules\Dictionaries\RuleFlags;
+namespace AppserverIo\WebServer\Modules\Proxy\Balancers;
 
 /**
- * Class RuleFlagsDictionary
- *
- * This file is a dictionary for rule flags.
- * Defines constant for flags we might use within the rule's flag field
+ * Balancer which balances based on a random assignment of targets
  *
  * @author    Bernhard Wick <bw@appserver.io>
  * @copyright 2015 TechDivision GmbH <info@appserver.io>
@@ -34,20 +29,35 @@ use AppserverIo\WebServer\Modules\Rules\Dictionaries\RuleFlags;
  * @link      https://github.com/appserver-io/webserver
  * @link      http://www.appserver.io/
  */
-class RuleFlagsDictionary extends RuleFlags
+class RandomBalancer implements BalancerInterface
 {
 
     /**
-     * Make proxy balance load in between different target URLs
+     * The name of this balancer
      *
-     * @var string
+     * @var string NAME
      */
-    const BALANCE = 'B';
+    const NAME = 'random';
 
     /**
-     * Make proxy fall back to the next target if applied connection times out
+     * Will take an array or targeted URLs and return the one which has to be targeted after balance considerations
      *
-     * @var string
+     * @param array $targetUrls Array of possible target URLs
+     *
+     * @return string
      */
-    const FALLBACK = 'F';
+    public function balance(array $targetUrls)
+    {
+        return $targetUrls[array_rand($targetUrls)];
+    }
+
+    /**
+     * Returns the name of this balancer
+     *
+     * @return string
+     */
+    public function getName()
+    {
+        return self::NAME;
+    }
 }

@@ -20,6 +20,7 @@
 
 namespace AppserverIo\WebServer\Modules\Rewrite;
 
+use AppserverIo\Http\HttpRequest;
 use AppserverIo\WebServer\Mock\MockRequestContext;
 use AppserverIo\WebServer\Mock\MockRule;
 use AppserverIo\Http\HttpResponse;
@@ -95,13 +96,14 @@ class RuleTest extends \PHPUnit_Framework_TestCase
         $rule = new MockRule('.*', __FILE__, '');
         $mockRequestContext = new MockRequestContext();
         $response = new HttpResponse();
+        $request = new HttpRequest();
 
         // Do the thing
-        $result = $rule->apply($mockRequestContext, $response, array());
+        $result = $rule->apply($request, $response, $mockRequestContext, array());
         $this->assertEquals('absolute', $rule->getType());
         $this->assertTrue($mockRequestContext->hasServerVar(ServerVars::REQUEST_FILENAME));
         $this->assertEquals(__FILE__, $mockRequestContext->getServerVar(ServerVars::REQUEST_FILENAME));
-        $this->assertTrue($result);
+        $this->assertFalse($result);
     }
 
     /**
@@ -115,9 +117,10 @@ class RuleTest extends \PHPUnit_Framework_TestCase
         $rule = new MockRule('.*', array(), 'L,M=$X_REQUEST_URI');
         $mockRequestContext = new MockRequestContext();
         $response = new HttpResponse();
+        $request = new HttpRequest();
 
         // Do the thing
-        $rule->apply($mockRequestContext, $response, array());
+        $rule->apply($request, $response, $mockRequestContext, array());
         $this->assertEquals('', $rule->getTarget());
         $this->assertFalse(array_key_exists('L', $rule->getSortedFlags()));
     }
@@ -133,9 +136,10 @@ class RuleTest extends \PHPUnit_Framework_TestCase
         $rule = new MockRule('.*', array('test' => 'testTarget'), 'M=test');
         $mockRequestContext = new MockRequestContext();
         $response = new HttpResponse();
+        $request = new HttpRequest();
 
         // Do the thing
-        $rule->apply($mockRequestContext, $response, array());
+        $rule->apply($request, $response, $mockRequestContext, array());
         $this->assertEquals('/testTarget', $rule->getTarget());
     }
 
@@ -150,9 +154,10 @@ class RuleTest extends \PHPUnit_Framework_TestCase
         $rule = new MockRule('.*', array('testBert' => 'testTarget'), 'M=test$BACKREF');
         $mockRequestContext = new MockRequestContext();
         $response = new HttpResponse();
+        $request = new HttpRequest();
 
         // Do the thing
-        $rule->apply($mockRequestContext, $response, array('$BACKREF' => 'Bert'));
+        $rule->apply($request, $response, $mockRequestContext, array('$BACKREF' => 'Bert'));
         $this->assertEquals('/testTarget', $rule->getTarget());
     }
 }

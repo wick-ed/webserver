@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Proxy\RuleFlagsDictionary
+ * \AppserverIo\WebServer\Modules\Proxy\Balancers\BalancerInterface
  *
  * NOTICE OF LICENSE
  *
@@ -18,15 +18,10 @@
  * @link      http://www.appserver.io/
  */
 
-namespace AppserverIo\WebServer\Modules\Proxy;
-
-use AppserverIo\WebServer\Modules\Rules\Dictionaries\RuleFlags;
+namespace AppserverIo\WebServer\Modules\Proxy\Balancers;
 
 /**
- * Class RuleFlagsDictionary
- *
- * This file is a dictionary for rule flags.
- * Defines constant for flags we might use within the rule's flag field
+ * Interface common to all balancers
  *
  * @author    Bernhard Wick <bw@appserver.io>
  * @copyright 2015 TechDivision GmbH <info@appserver.io>
@@ -34,20 +29,22 @@ use AppserverIo\WebServer\Modules\Rules\Dictionaries\RuleFlags;
  * @link      https://github.com/appserver-io/webserver
  * @link      http://www.appserver.io/
  */
-class RuleFlagsDictionary extends RuleFlags
+interface BalancerInterface
 {
 
     /**
-     * Make proxy balance load in between different target URLs
+     * Will take an array or targeted URLs and return the one which has to be targeted after balance considerations
      *
-     * @var string
+     * @param array $targetUrls Array of possible target URLs
+     *
+     * @return string
      */
-    const BALANCE = 'B';
+    public function balance(array $targetUrls);
 
     /**
-     * Make proxy fall back to the next target if applied connection times out
+     * Returns the name of the balancer
      *
-     * @var string
+     * @return string
      */
-    const FALLBACK = 'F';
+    public function getName();
 }

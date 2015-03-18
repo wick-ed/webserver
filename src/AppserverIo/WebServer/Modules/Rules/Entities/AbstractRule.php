@@ -1,7 +1,7 @@
 <?php
 
 /**
- * \AppserverIo\WebServer\Modules\Rules\Entities\Rule
+ * \AppserverIo\WebServer\Modules\Rules\Entities\AbstractRule
  *
  * NOTICE OF LICENSE
  *
@@ -20,6 +20,8 @@
 
 namespace AppserverIo\WebServer\Modules\Rules\Entities;
 
+use AppserverIo\Psr\HttpMessage\RequestInterface;
+use AppserverIo\Psr\HttpMessage\ResponseInterface;
 use AppserverIo\Server\Dictionaries\ServerVars;
 use AppserverIo\Server\Interfaces\RequestContextInterface;
 
@@ -35,6 +37,41 @@ use AppserverIo\Server\Interfaces\RequestContextInterface;
  */
 abstract class AbstractRule
 {
+
+    /**
+     * The default operand we will check all conditions against if none was given explicitly
+     *
+     * @const string DEFAULT_OPERAND
+     */
+    const DEFAULT_OPERAND = '@$X_REQUEST_URI';
+
+    /**
+     * This constant by which conditions are separated and marked as or-combined
+     *
+     * @const string CONDITION_OR_DELIMITER
+     */
+    const CONDITION_OR_DELIMITER = '{OR}';
+
+    /**
+     * This constant by which conditions are separated and marked as and-combined (the default)
+     *
+     * @const string CONDITION_AND_DELIMITER
+     */
+    const CONDITION_AND_DELIMITER = '{AND}';
+
+    /**
+     * This constant is used to separate flags from each other
+     *
+     * @const string FLAG_DELIMITER
+     */
+    const FLAG_DELIMITER = ',';
+
+    /**
+     * This constant is used to separate flags from their potential parameters
+     *
+     * @const string FLAG_PARAMETER_ASSIGNER
+     */
+    const FLAG_PARAMETER_ASSIGNER = '=';
 
     /**
      * The allowed values the $type member my assume
@@ -94,41 +131,6 @@ abstract class AbstractRule
     protected $sortedFlags;
 
     /**
-     * The default operand we will check all conditions against if none was given explicitly
-     *
-     * @const string DEFAULT_OPERAND
-     */
-    const DEFAULT_OPERAND = '@$X_REQUEST_URI';
-
-    /**
-     * This constant by which conditions are separated and marked as or-combined
-     *
-     * @const string CONDITION_OR_DELIMITER
-     */
-    const CONDITION_OR_DELIMITER = '{OR}';
-
-    /**
-     * This constant by which conditions are separated and marked as and-combined (the default)
-     *
-     * @const string CONDITION_AND_DELIMITER
-     */
-    const CONDITION_AND_DELIMITER = '{AND}';
-
-    /**
-     * This constant is used to separate flags from each other
-     *
-     * @const string FLAG_DELIMITER
-     */
-    const FLAG_DELIMITER = ',';
-
-    /**
-     * This constant is used to separate flags from their potential parameters
-     *
-     * @const string FLAG_PARAMETER_ASSIGNER
-     */
-    const FLAG_PARAMETER_ASSIGNER = '=';
-
-    /**
      * Default constructor
      *
      * @param string       $conditionString Condition string e.g. "^_Resources/.*" or "-f{OR}-d{OR}-d@$REQUEST_FILENAME"
@@ -146,12 +148,6 @@ abstract class AbstractRule
         // Get the sorted flags, should be easy to break up
         $this->sortedFlags = $this->sortFlags($this->flagString);
 
-        // Set our default values here
-        $this->allowedTypes = array(
-            'relative',
-            'absolute',
-            'url'
-        );
         $this->matchingBackreferences = array();
 
         // filter the condition string using our regex, but first of all we will append the default operand
@@ -195,6 +191,25 @@ abstract class AbstractRule
             }
         }
     }
+
+    /**
+     * Initiates the module
+     *
+     * @param \AppserverIo\Psr\HttpMessage\RequestInterface          $request              The request instance
+     * @param \AppserverIo\Psr\HttpMessage\ResponseInterface         $response             The response instance
+     * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext       The request's context
+     * @param array                                                  $serverBackreferences Server backreferences
+     *
+     * @return boolean
+     *
+     * @throws \Exception
+     */
+    abstract public function apply(
+        RequestInterface $request,
+        ResponseInterface $response,
+        RequestContextInterface $requestContext,
+        array $serverBackreferences
+    );
 
     /**
      * Sort the flag string as we will have a bad time parsing the string over and over again
@@ -280,7 +295,7 @@ abstract class AbstractRule
     /**
      * Will return true if the rule applies, false if not
      *
-     * @return bool
+     * @return boolean
      */
     public function matches()
     {

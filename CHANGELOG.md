@@ -1,3 +1,13 @@
+# Version 2.1.0
+
+## Bugfixes
+
+* Changed order of travis build commands to tackle issues with scrutinizer-ci external code coverage
+
+## Features
+
+* Added a proxy module to relay incoming requests based on complex conditions
+
 # Version 2.0.1
 
 ## Bugfixes

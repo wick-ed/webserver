@@ -22,6 +22,7 @@ namespace AppserverIo\WebServer\Modules\Rewrite;
 
 use AppserverIo\Psr\HttpMessage\Protocol;
 use AppserverIo\Http\HttpResponseStates;
+use AppserverIo\Psr\HttpMessage\RequestInterface;
 use AppserverIo\Psr\HttpMessage\ResponseInterface;
 use AppserverIo\Server\Dictionaries\ServerVars;
 use AppserverIo\Server\Interfaces\RequestContextInterface;
@@ -49,85 +50,18 @@ class Rule extends AbstractRule
     const DEFAULT_OPERAND = '@$X_REQUEST_URI';
 
     /**
-     * Default constructor
-     *
-     * @param string       $conditionString Condition string e.g. "^_Resources/.*" or "-f{OR}-d{OR}-d@$REQUEST_FILENAME"
-     * @param string|array $target          The target to rewrite to, might be null if we should do nothing
-     * @param string       $flagString      A flag string which might be added to to the rule e.g. "L" or "C,R"
-     */
-    public function __construct($conditionString, $target, $flagString)
-    {
-        // Set the raw string properties and append our default operand to the condition string
-        $this->conditionString = $conditionString;
-        $conditionString .= $this->getDefaultOperand();
-        $this->target = $target;
-        $this->flagString = $flagString;
-
-        // Get the sorted flags, should be easy to break up
-        $this->sortedFlags = $this->sortFlags($this->flagString);
-
-        // Set our default values here
-        $this->allowedTypes = array(
-            'relative',
-            'absolute',
-            'url'
-        );
-        $this->matchingBackreferences = array();
-
-        // filter the condition string using our regex, but first of all we will append the default operand
-        $conditionPieces = array();
-        preg_match_all('`(.*?)@(\$[0-9a-zA-Z_]+)`', $conditionString, $conditionPieces);
-        // The first index is always useless, unset it to avoid confusion
-        unset($conditionPieces[0]);
-
-        // Conditions are kind of sorted now, we can split them up into condition actions and their operands
-        $conditionActions = $conditionPieces[1];
-        $conditionOperands = $conditionPieces[2];
-
-        // Iterate over the condition piece arrays, trim them and build our array of sorted condition objects
-        for ($i = 0; $i < count($conditionActions); $i ++) {
-            // Trim whatever we got here as the string might be a bit dirty
-            $actionString = trim($conditionActions[$i], self::CONDITION_OR_DELIMITER . '|' . self::CONDITION_AND_DELIMITER);
-
-            // Collect all and-combined pieces of the conditionstring
-            $andActionStringPieces = explode(self::CONDITION_AND_DELIMITER, $actionString);
-
-            // Iterate through them and build up conditions or or-combined condition groups
-            foreach ($andActionStringPieces as $andActionStringPiece) {
-                // Everything is and-combined (plain array) unless combined otherwise (with a "{OR}" symbol)
-                // If we find an or-combination we will make a deeper array within our sorted condition array
-                if (strpos($andActionStringPiece, self::CONDITION_OR_DELIMITER) !== false) {
-                    // Collect all or-combined conditions into a separate array
-                    $actionStringPieces = explode(self::CONDITION_OR_DELIMITER, $andActionStringPiece);
-
-                    // Iterate over the pieces we found and create a condition for each of them
-                    $entry = array();
-                    foreach ($actionStringPieces as $actionStringPiece) {
-                        // Get a new condition instance
-                        $entry[] = new Condition($conditionOperands[$i], $actionStringPiece);
-                    }
-                } else {
-                    // Get a new condition instance
-                    $entry = new Condition($conditionOperands[$i], $andActionStringPiece);
-                }
-
-                $this->sortedConditions[] = $entry;
-            }
-        }
-    }
-
-    /**
      * Initiates the module
      *
-     * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext       The request's context
+     * @param \AppserverIo\Psr\HttpMessage\RequestInterface          $request              The request instance
      * @param \AppserverIo\Psr\HttpMessage\ResponseInterface         $response             The response instance
+     * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext       The request's context
      * @param array                                                  $serverBackreferences Server backreferences
      *
-     * @throws \InvalidArgumentException
-     *
      * @return boolean
+     *
+     * @throws \Exception
      */
-    public function apply(RequestContextInterface $requestContext, ResponseInterface $response, array $serverBackreferences)
+    public function apply(RequestInterface $request, ResponseInterface $response, RequestContextInterface $requestContext, array $serverBackreferences)
     {
 
         // First of all we have to resolve the target string with the backreferences of the matching condition
@@ -208,13 +142,13 @@ class Rule extends AbstractRule
             // Lets tell them that we successfully made a redirect
             $requestContext->setServerVar(ServerVars::REDIRECT_STATUS, '200');
         }
-        // If we got the "LAST"-flag we have to end here, so return false
+        // If we got the "LAST"-flag we have to end here, so return true
         if (array_key_exists(RuleFlagsDictionary::LAST, $this->sortedFlags)) {
-            return false;
+            return true;
         }
 
-        // Still here? That sounds good
-        return true;
+        // there is still work to do
+        return false;
     }
 
     /**

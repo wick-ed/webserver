@@ -20,17 +20,17 @@
 
 namespace AppserverIo\WebServer\Modules\Proxy;
 
-use AppserverIo\Psr\HttpMessage\Protocol;
+use AppserverIo\Http\HttpProtocol;
 use AppserverIo\Http\HttpResponseStates;
+use AppserverIo\Psr\HttpMessage\RequestInterface;
 use AppserverIo\Psr\HttpMessage\ResponseInterface;
 use AppserverIo\Server\Dictionaries\ServerVars;
 use AppserverIo\Server\Interfaces\RequestContextInterface;
+use AppserverIo\WebServer\Modules\Proxy\Balancers\RandomBalancer;
 use AppserverIo\WebServer\Modules\Rules\Entities\AbstractRule;
-use AppserverIo\WebServer\Modules\Rules\Entities\Condition;
 
 /**
- * This class provides an object based representation of a rewrite rule, including logic for testing, applying
- * and handling conditions.
+ * This class provides an object based representation of a proxy rule
  *
  * @author    Bernhard Wick <bw@appserver.io>
  * @copyright 2015 TechDivision GmbH <info@appserver.io>
@@ -46,7 +46,40 @@ class Rule extends AbstractRule
      *
      * @const string DEFAULT_OPERAND
      */
+    const DEFAULT_BALANCER = '\AppserverIo\WebServer\Modules\Proxy\Balancers\RandomBalancer';
+
+    /**
+     * The default operand we will check all conditions against if none was given explicitly
+     *
+     * @const string DEFAULT_OPERAND
+     */
     const DEFAULT_OPERAND = '@$X_REQUEST_URI';
+
+    /**
+     *
+     */
+    const HEADER_CHAIN_SEPARATOR = ',';
+
+    /**
+     * Connector which is used to separate different URLs to which incoming request should be relayed
+     *
+     * @const string TARGET_CONNECTOR
+     */
+    const TARGET_CONNECTOR = ',';
+
+    /**
+     * The balancer to use for this rule
+     *
+     * @var \AppserverIo\WebServer\Modules\Proxy\Balancers\BalancerInterface $balancer
+     */
+    protected $balancer;
+
+    /**
+     * Array of target URLs incoming requests are relayed to
+     *
+     * @var array $targetUrls
+     */
+    protected $targetUrls = array();
 
     /**
      * Default constructor
@@ -57,198 +90,112 @@ class Rule extends AbstractRule
      */
     public function __construct($conditionString, $target, $flagString)
     {
-        // Set the raw string properties and append our default operand to the condition string
-        $this->conditionString = $conditionString;
-        $conditionString .= $this->getDefaultOperand();
-        $this->target = $target;
-        $this->flagString = $flagString;
 
-        // Get the sorted flags, should be easy to break up
-        $this->sortedFlags = $this->sortFlags($this->flagString);
+        // split the target into different URLs (if any)
+        $this->targetUrls = explode(self::TARGET_CONNECTOR, $target);
 
-        // Set our default values here
-        $this->allowedTypes = array(
-            'relative',
-            'absolute',
-            'url'
-        );
-        $this->matchingBackreferences = array();
+        // invoke parent constructor to fill properties
+        parent::__construct($conditionString, $target, $flagString);
 
-        // filter the condition string using our regex, but first of all we will append the default operand
-        $conditionPieces = array();
-        preg_match_all('`(.*?)@(\$[0-9a-zA-Z_]+)`', $conditionString, $conditionPieces);
-        // The first index is always useless, unset it to avoid confusion
-        unset($conditionPieces[0]);
-
-        // Conditions are kind of sorted now, we can split them up into condition actions and their operands
-        $conditionActions = $conditionPieces[1];
-        $conditionOperands = $conditionPieces[2];
-
-        // Iterate over the condition piece arrays, trim them and build our array of sorted condition objects
-        for ($i = 0; $i < count($conditionActions); $i ++) {
-            // Trim whatever we got here as the string might be a bit dirty
-            $actionString = trim($conditionActions[$i], self::CONDITION_OR_DELIMITER . '|' . self::CONDITION_AND_DELIMITER);
-
-            // Collect all and-combined pieces of the conditionstring
-            $andActionStringPieces = explode(self::CONDITION_AND_DELIMITER, $actionString);
-
-            // Iterate through them and build up conditions or or-combined condition groups
-            foreach ($andActionStringPieces as $andActionStringPiece) {
-                // Everything is and-combined (plain array) unless combined otherwise (with a "{OR}" symbol)
-                // If we find an or-combination we will make a deeper array within our sorted condition array
-                if (strpos($andActionStringPiece, self::CONDITION_OR_DELIMITER) !== false) {
-                    // Collect all or-combined conditions into a separate array
-                    $actionStringPieces = explode(self::CONDITION_OR_DELIMITER, $andActionStringPiece);
-
-                    // Iterate over the pieces we found and create a condition for each of them
-                    $entry = array();
-                    foreach ($actionStringPieces as $actionStringPiece) {
-                        // Get a new condition instance
-                        $entry[] = new Condition($conditionOperands[$i], $actionStringPiece);
-                    }
-                } else {
-                    // Get a new condition instance
-                    $entry = new Condition($conditionOperands[$i], $andActionStringPiece);
-                }
-
-                $this->sortedConditions[] = $entry;
-            }
-        }
+        // get the right balancer
+        $this->findBalancer();
     }
 
     /**
      * Initiates the module
      *
-     * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext       The request's context
+     * @param \AppserverIo\Psr\HttpMessage\RequestInterface          $request              The request instance
      * @param \AppserverIo\Psr\HttpMessage\ResponseInterface         $response             The response instance
+     * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext       The request's context
      * @param array                                                  $serverBackreferences Server backreferences
      *
-     * @throws \InvalidArgumentException
-     *
      * @return boolean
+     *
+     * @throws \Exception
      */
-    public function apply(RequestContextInterface $requestContext, ResponseInterface $response, array $serverBackreferences)
+    public function apply(RequestInterface $request, ResponseInterface $response, RequestContextInterface $requestContext, array $serverBackreferences)
     {
 
-        // First of all we have to resolve the target string with the backreferences of the matching condition
-        // Separate the keys from the values so we can use them in str_replace
-        // And also mix in the server's backreferences for good measure
-        $this->matchingBackreferences = array_merge($this->matchingBackreferences, $serverBackreferences);
-        $backreferenceHolders = array_keys($this->matchingBackreferences);
-        $backreferenceValues = array_values($this->matchingBackreferences);
+        // do the load balancing
+        $targetUrl = $this->balancer->balance($this->targetUrls);
 
-        // If we got a target map (flag "M") we have to resolve the target string we have to use first
-        // The following checks will be treated as an additional condition
-        if (array_key_exists(RuleFlagsDictionary::MAP, $this->sortedFlags) && ! empty($this->sortedFlags[RuleFlagsDictionary::MAP])) {
-            // Get our map key for better readability
-            $mapKey = str_replace(array_keys($this->matchingBackreferences), $this->matchingBackreferences, $this->sortedFlags[RuleFlagsDictionary::MAP]);
-
-            // Still here? That sounds good. Get the needed target string now
-            if (isset($this->target[$mapKey])) {
-                $this->target = $this->target[$mapKey];
-            } else {
-                // Empty string, we will do nothing with this rule
-                $this->target = '';
-
-                // Also clear any L-flag we might find, we could not find what we are looking for so we should not end
-                if (array_key_exists(RuleFlagsDictionary::LAST, $this->sortedFlags)) {
-                    unset($this->sortedFlags[RuleFlagsDictionary::LAST]);
-                }
-            }
+        // we need a valid URL as a target, otherwise applying the rule makes no sense
+        if(filter_var($targetUrl, FILTER_VALIDATE_URL) === false) {
+            throw new \Exception(sprintf('The target %s is neither a valid URL nor a list of URLs. The rule cannot be applied', $targetUrl));
         }
 
-        // Back to our rule...
-        // If the target string is empty we do not have to do anything
-        if (! empty($this->target)) {
-            // Just make sure that you check for the existence of the query string first, as it might not be set
-            $queryFreeRequestUri = $requestContext->getServerVar(ServerVars::X_REQUEST_URI);
-            if ($requestContext->hasServerVar(ServerVars::QUERY_STRING)) {
-                $queryFreeRequestUri = str_replace('?' . $requestContext->getServerVar(ServerVars::QUERY_STRING), '', $queryFreeRequestUri);
+        // make a CURL call to the configured target
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $targetUrl);
 
-                // Set the "redirect" query string as a backup as we might change the original
-                $requestContext->setServerVar('REDIRECT_QUERY_STRING', $requestContext->getServerVar(ServerVars::QUERY_STRING));
-            }
-            $requestContext->setServerVar('REDIRECT_URL', $queryFreeRequestUri);
+        // forward the headers + the proxy additions
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $this->collectHeaders($request, $requestContext));
 
-            // Substitute the backreferences in our operation
-            $this->target = str_replace($backreferenceHolders, $backreferenceValues, $this->target);
+        // other options
+        curl_setopt($ch, CURLOPT_USERAGENT, $request->getHeader(HttpProtocol::HEADER_USER_AGENT));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-            // We have to find out what type of rule we got here
-            if (is_readable($this->target)) {
-                // We have an absolute file path!
-                $this->type = 'absolute';
+        $result = curl_exec($ch);
+        curl_close($ch);
 
-                // Set the REQUEST_FILENAME path
-                $requestContext->setServerVar(ServerVars::REQUEST_FILENAME, $this->target);
-            } elseif (filter_var($this->target, FILTER_VALIDATE_URL) !== false) {
-                // We have a complete URL!
-                $this->type = 'url';
-            } else {
-                // Last but not least we might have gotten a relative path (most likely)
-                // Build up the REQUEST_FILENAME from DOCUMENT_ROOT and X_REQUEST_URI (without the query string)
-                $this->type = 'relative';
-
-                // Setting the X_REQUEST_URI for internal communication
-                // Requested uri always has to begin with a slash
-                $this->target = '/' . ltrim($this->target, '/');
-                $requestContext->setServerVar(ServerVars::X_REQUEST_URI, $this->target);
-
-                // Only change the query string if we have one in our target string
-                if (strpos($this->target, '?') !== false) {
-                    $requestContext->setServerVar(ServerVars::QUERY_STRING, substr(strstr($this->target, '?'), 1));
-                }
-            }
-
-            // do we have to make a redirect?
-            // if so we have to have to set the status code accordingly and dispatch the response
-            if (array_key_exists(RuleFlagsDictionary::REDIRECT, $this->sortedFlags)) {
-                $this->prepareRedirect($requestContext, $response);
-            }
-
-            // Lets tell them that we successfully made a redirect
-            $requestContext->setServerVar(ServerVars::REDIRECT_STATUS, '200');
-        }
-        // If we got the "LAST"-flag we have to end here, so return false
-        if (array_key_exists(RuleFlagsDictionary::LAST, $this->sortedFlags)) {
-            return false;
-        }
-
-        // Still here? That sounds good
-        return true;
+        // make the result known
+        $response->appendBodyStream($result);
+        // set response state to be dispatched after this without calling other modules process
+        $response->setState(HttpResponseStates::DISPATCH);
     }
 
     /**
-     * Will prepare a response for a redirect.
-     * This includes setting the new target, the appropriate status code and dispatching it to break the
-     * module chain
+     * Will prepare all headers for a proxy request including the original client headers and the ones indicating proxy
+     * uage to the origin server
      *
-     * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext The request's context
-     * @param \AppserverIo\Psr\HttpMessage\ResponseInterface         $response       The response instance to be prepared
+     * @param \AppserverIo\Psr\HttpMessage\RequestInterface          $request              The request instance
+     * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext       The request's context
+     *
+     * @return array
+     */
+    protected function collectHeaders(RequestInterface $request, RequestContextInterface $requestContext)
+    {
+        // prepare the client headers we got already
+        $headers = array();
+        foreach ($request->getHeaders() as $headerName => $headerValue) {
+            $headers[$headerName] = $headerName . HttpProtocol::HEADER_SEPARATOR . $headerValue;
+        }
+
+        // prepare the array of headers indicating this proxy use
+        $proxyHeaders = array(
+            'X-Forwarded-For' => $requestContext->getServerVar(ServerVars::REMOTE_ADDR),
+            'X-Forwarded-Host' => $request->getHeader(HttpProtocol::HEADER_HOST),
+            'X-Forwarded-Server' => $requestContext->getServerVar(ServerVars::SERVER_NAME)
+        );
+
+        // set or update (if already there) the header fields which indicate proxy use
+        foreach ($proxyHeaders as $headerName => $headerValue) {
+            // iterate all headers set by a proxy and set them based on their current usage
+            if ($request->hasHeader($headerName)) {
+                $headers[$headerName] = $headerName . HttpProtocol::HEADER_SEPARATOR . $headers[$headerName] . self::HEADER_CHAIN_SEPARATOR . $headerValue;
+            } else {
+                $headers[$headerName] = $headerName . HttpProtocol::HEADER_SEPARATOR . $headerValue;
+            }
+        }
+
+        return $headers;
+    }
+
+    /**
+     * Finds the balancer based on our configured flags
      *
      * @return void
      */
-    protected function prepareRedirect($requestContext, ResponseInterface $response)
+    protected function findBalancer()
     {
-        // if we got a specific status code we have to filter it and apply it if possible
-        $statusCode = 301;
-        $proposedStatusCode = $this->sortedFlags[RuleFlagsDictionary::REDIRECT];
-        if (is_numeric($proposedStatusCode) && $proposedStatusCode >= 300 && $proposedStatusCode < 400) {
-            $statusCode = $proposedStatusCode;
-        }
+        // if there is no BALANCE flag set we use our default balancer
+        if (!isset($this->sortedFlags[RuleFlagsDictionary::BALANCE])) {
+            $tmp = self::DEFAULT_BALANCER;
+            $this->balancer = new $tmp;
 
-        // there might be work to be done depending on whether or not we got a complete URL
-        if ($this->type === 'relative') {
-            $newTarget = $requestContext->getServerVar(ServerVars::REQUEST_SCHEME);
-            $newTarget .= '://';
-            $newTarget .= $requestContext->getServerVar(ServerVars::HTTP_HOST);
-            $this->target = $newTarget . $this->getTarget();
-        }
+        } else {
+            // flag is set, determine which balancer has been specified
 
-        // set enhance uri to response
-        $response->addHeader(Protocol::HEADER_LOCATION, $this->target);
-        // send redirect status
-        $response->setStatusCode($statusCode);
-        // set response state to be dispatched after this without calling other modules process
-        $response->setState(HttpResponseStates::DISPATCH);
+        }
     }
 }
