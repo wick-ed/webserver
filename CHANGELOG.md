@@ -1,3 +1,13 @@
+# Version 5.1.2
+
+## Bugfixes
+
+* Fixed that rewrite rules do not forward their result to the next rule in the stack
+
+## Features
+
+* None
+
 # Version 5.1.1
 
 ## Bugfixes

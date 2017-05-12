@@ -291,9 +291,11 @@ class Rule
     /**
      * Will return true if the rule applies, false if not
      *
+     * @param string|null $volatileOperand Optional operand which might replace already prepared oeprands
+     *
      * @return bool
      */
-    public function matches()
+    public function matches($volatileOperand = null)
     {
         // We will iterate over all conditions (and the or-combined condition groups) and if there is a non-matching
         // condition or condition group we will fail
@@ -303,9 +305,9 @@ class Rule
                 // These are or-combined conditions, so break if we match one
                 $orGroupMatched = false;
                 foreach ($sortedCondition as $orCombinedCondition) {
-                    if ($orCombinedCondition->matches()) {
+                    if ($orCombinedCondition->matches($volatileOperand)) {
                         $orGroupMatched = true;
-                        $this->matchingBackreferences = array_merge($this->matchingBackreferences, $orCombinedCondition->getBackreferences());
+                        $this->matchingBackreferences = array_merge($this->matchingBackreferences, $orCombinedCondition->getBackreferences($volatileOperand));
                         break;
                     }
                 }
@@ -314,11 +316,11 @@ class Rule
                 if ($orGroupMatched === false) {
                     return false;
                 }
-            } elseif (! $sortedCondition->matches()) {
+            } elseif (! $sortedCondition->matches($volatileOperand)) {
                 // The single conditions have to match as they are and-combined
                 return false;
             } else {
-                $this->matchingBackreferences = array_merge($this->matchingBackreferences, $sortedCondition->getBackreferences());
+                $this->matchingBackreferences = array_merge($this->matchingBackreferences, $sortedCondition->getBackreferences($volatileOperand));
             }
         }
 
