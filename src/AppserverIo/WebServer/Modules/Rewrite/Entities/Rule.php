@@ -270,6 +270,12 @@ class Rule
      */
     protected function resolveConditions(array $backreferences)
     {
+
+        // ATTENTION: This prevents the creation of unresolved filesystem backreferences
+        if (sizeof($backreferences) === 0) {
+            return;
+        }
+
         // Iterate over all conditions and resolve them too
         foreach ($this->sortedConditions as $key => $sortedCondition) {
             // If we got an array we have to iterate over it separately, but be aware they are or-combined
