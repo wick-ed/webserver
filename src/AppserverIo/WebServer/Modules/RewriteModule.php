@@ -191,7 +191,7 @@ class RewriteModule implements HttpModuleInterface
      * @param \AppserverIo\Server\Interfaces\RequestContextInterface $requestContext A requests context instance
      * @param int                                                    $hook           The current hook to process logic for
      *
-     * @return bool
+     * @return bool|void
      * @throws \AppserverIo\Server\Exceptions\ModuleException
      */
     public function process(RequestInterface $request, ResponseInterface $response, RequestContextInterface $requestContext, $hook)
@@ -254,13 +254,17 @@ class RewriteModule implements HttpModuleInterface
             }
 
             // Iterate over all rules, resolve vars and apply the rule (if needed)
+            $volatileOperand = null;
+            /** @var Rule $rule */
             foreach ($this->rules[$requestUrl] as $rule) {
                 // Check if the rule matches, and if, apply the rule
-                if ($rule->matches()) {
+                if ($rule->matches($volatileOperand)) {
                     // Apply the rule. If apply() returns false this means this was the last rule to process
                     if ($rule->apply($requestContext, $response, $this->serverBackreferences) === false) {
                         break;
                     }
+                    // we continue through the rule stack with the result of the last rule
+                    $volatileOperand = $rule->getTarget();
                 }
             }
         } catch (\Exception $e) {

@@ -265,11 +265,18 @@ class Condition
     /**
      * Will return true if the condition is true, false if not
      *
+     * @param string|null $volatileOperand Optional operand which might replace already prepared operands
+     *
      * @return boolean
      * @throws \InvalidArgumentException
      */
-    public function matches()
+    public function matches($volatileOperand = null)
     {
+        $operand = $this->operand;
+        if (!is_null($volatileOperand)) {
+            $operand = $volatileOperand;
+        }
+
         // Switching between different actions we have to take.
         // Using an if cascade as it seems to be faster than switch...case
         $result = false;
@@ -278,38 +285,38 @@ class Condition
 
             $modifiers = array_flip($this->modifiers);
             $modifier = isset($modifiers[RuleFlags::NOCASE])?'i':'';
-            $result = preg_match('`' . $this->additionalOperand . '`' . $modifier, $this->operand) === 1;
+            $result = preg_match('`' . $this->additionalOperand . '`' . $modifier, $operand) === 1;
         } elseif ($this->action === ConditionActions::IS_DIR) {
             // Is it an existing directory?
 
-            $result = is_dir($this->additionalOperand . $this->operand);
+            $result = is_dir($this->additionalOperand . $operand);
         } elseif ($this->action === ConditionActions::IS_EXECUTABLE) {
             // Is the file an executable?
 
-            $result = is_executable($this->additionalOperand . $this->operand);
+            $result = is_executable($this->additionalOperand . $operand);
         } elseif ($this->action === ConditionActions::IS_FILE) {
             // Is it a regular file?
 
-            $result = is_file($this->additionalOperand . $this->operand);
+            $result = is_file($this->additionalOperand . $operand);
         } elseif ($this->action === ConditionActions::IS_LINK) {
             // Is it a symlink?
 
-            $result = is_link($this->additionalOperand . $this->operand);
+            $result = is_link($this->additionalOperand . $operand);
         } elseif ($this->action === ConditionActions::IS_USED_FILE) {
             // Is it a real file which has a size greater 0?
 
-            $result = (is_file($this->additionalOperand . $this->operand) && (int) filesize($this->additionalOperand . $this->operand) > 0);
+            $result = (is_file($this->additionalOperand . $operand) && (int) filesize($this->additionalOperand . $operand) > 0);
         } elseif ($this->action === ConditionActions::STR_EQUAL) {
             // Or the compared strings equal
 
-            $result = strcmp($this->operand, $this->additionalOperand) == 0;
+            $result = strcmp($operand, $this->additionalOperand) == 0;
         } elseif ($this->action === ConditionActions::STR_GREATER) {
             // Is the operand bigger?
 
-            $result = strcmp($this->operand, $this->additionalOperand) > 0;
+            $result = strcmp($operand, $this->additionalOperand) > 0;
         } elseif ($this->action === ConditionActions::STR_LESS) {
             // Is the operand smaller?
-            $result = strcmp($this->operand, $this->additionalOperand) < 0;
+            $result = strcmp($operand, $this->additionalOperand) < 0;
         }
 
         // If the check got negated we will just negate what we got from our preceding checks
@@ -323,7 +330,7 @@ class Condition
     /**
      * Will prepare a filesystem enabled operand by cutting of any traces of a query string
      *
-     * @return null
+     * @return void
      */
     protected function prepareFilesystemOperand()
     {
@@ -343,14 +350,21 @@ class Condition
     /**
      * Will collect all backreferences based on regex typed conditions
      *
+     * @param string|null $volatileOperand Optional operand which might replace already prepared operands
+     *
      * @return array
      */
-    public function getBackreferences()
+    public function getBackreferences($volatileOperand = null)
     {
+        $operand = $this->operand;
+        if (!is_null($volatileOperand)) {
+            $operand = $volatileOperand;
+        }
+
         $backreferences = array();
         $matches = array();
         if ($this->type === 'regex') {
-            preg_match('`' . $this->additionalOperand . '`', $this->operand, $matches);
+            preg_match('`' . $this->additionalOperand . '`', $operand, $matches);
 
             // Unset the first find of our backreferences, so we can use it automatically
             unset($matches[0]);
